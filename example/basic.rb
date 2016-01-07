@@ -1,6 +1,10 @@
 #!mruby
 
-get "/" do
+get /^\/fo+/ do
+  "ふー"
+end
+
+get "/" do |r|
 '
 <script src="http://code.jquery.com/jquery-latest.js"></script>
 <script src="/foo.js"></script>
@@ -11,14 +15,14 @@ get "/" do
 <input type="text" id="name" name="name" value="">
 <input type="submit">
 </form>
-'
+<br><br>' + r.query.to_s
 end
 
 post "/add" do |r, param|
 "
-<meta http-equiv=refresh content='2; URL=/'>
+<meta http-equiv=refresh content='10; URL=/'>
 通報しますた「#{param['name']}」
-"
+" + param.to_s
 end
 
 Sinatic.run

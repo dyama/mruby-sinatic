@@ -13,7 +13,13 @@ module Sinatic
     @options[key] = value
   end
   def self.do(r)
-    route = @routes[r.method].select {|path| path[0] == r.path}
+    route = @routes[r.method].select {|path|
+      if path[0].class.to_s == 'String'
+        path[0] == r.path
+      else
+        /#{path[0]}/ =~ r.path
+      end
+    }
     if route.size > 0
       param = {}
       if r.headers['Content-Type'] == 'application/x-www-form-urlencoded'
@@ -90,7 +96,7 @@ module Sinatic
               bb = ::Sinatic.do(r)
               if !r.headers.has_key?('Connection') || r.headers['Connection'].upcase != 'KEEP-ALIVE'
                 c.write(bb) do |x|
-                  c.close if c
+                  c.close if c && !c.closing?
                   c = nil
                 end
               else
