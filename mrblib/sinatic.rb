@@ -12,6 +12,24 @@ module Sinatic
   def self.set(key, value)
     @options[key] = value
   end
+  def code2mesg(code)
+    case code
+    when 200 ; "OK"
+    when 404 ; "Not found"
+    else     ; "Internal Server Error"
+    end
+  end
+  def response_header(code, type, content)
+    ar = []
+    ar.push "HTTP/1.0 #{code} #{code2mesg(code)}"
+    if code == 200
+      ar.push "Content-Type: #{type}"
+    end
+    ar.push "Content-Length: #{content.size}"
+    ar.push ""
+    ar.push ""
+    ar.join("\r\n") + content
+  end
   def self.do(r)
     route = @routes[r.method].select {|path|
       if path[0].class.to_s == 'String'
@@ -35,7 +53,7 @@ module Sinatic
       if bb.class.to_s == 'Array'
         bb = bb[0]
       end
-      return [
+      return 200, [
         "HTTP/1.0 200 OK",
         "Content-Type: #{@content_type}",
         "Content-Length: #{bb.size}",
@@ -54,17 +72,19 @@ module Sinatic
         while (read = f.read(4096, bb.size)).size > 0
           bb += read
         end
-        return [
+        return 200, [
             "HTTP/1.0 200 OK",
             "Content-Type: #{ctype}; charset=utf-8",
             "Content-Length: #{bb.size}",
             "", ""].join("\r\n") + bb
-      rescue RuntimeError
+      rescue => ex
+        p ex
+        # 404
       ensure
         f.close if f
       end
     end
-    return "HTTP/1.0 404 Not Found\r\nContent-Length: 10\r\n\r\nNot Found\n"
+    return 404, response_header(404, "plain/text", code2mesg(404))
   end
   def self.shutdown?
     @shutdown
@@ -93,7 +113,7 @@ module Sinatic
             r = HTTP::Parser.new.parse_request(c.data)
             r.body = c.data.slice(i + 4, c.data.size - i - 4)
             if !r.headers.has_key?('Content-Length') || r.headers['Content-Length'].to_i == r.body.size
-              bb = ::Sinatic.do(r)
+              code, bb = ::Sinatic.do(r)
               if !r.headers.has_key?('Connection') || r.headers['Connection'].upcase != 'KEEP-ALIVE'
                 c.write(bb) do |x|
                   c.close if c && !c.closing?
@@ -105,11 +125,13 @@ module Sinatic
               end
             end
           end
-        rescue
-          c.write("HTTP/1.0 500 Internal Server Error\r\nContent-Length: 22\r\n\r\nInternal Server Error\n") do |x|
+        rescue => ex
+          msg = ex.to_s
+          c.write("HTTP/1.0 500 Internal Server Error\r\nContent-Length: #{msg.size}\r\n\r\n#{msg}") do |x|
             c.close if c && !c.closing?
             c = nil
           end
+	  puts msg
         end
       end
     end
