@@ -12,14 +12,14 @@ module Sinatic
   def self.set(key, value)
     @options[key] = value
   end
-  def code2mesg(code)
+  def self.code2mesg(code)
     case code
     when 200 ; "OK"
     when 404 ; "Not found"
     else     ; "Internal Server Error"
     end
   end
-  def response_header(code, type, content)
+  def self.response_header(code, type, content)
     ar = []
     ar.push "HTTP/1.0 #{code} #{code2mesg(code)}"
     if code == 200
